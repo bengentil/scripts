@@ -1,0 +1,68 @@
+#!/bin/bash
+#set -x
+
+PROGNAME=`/bin/basename $0`
+PROGPATH=`echo $0 | sed -e 's,[\\/][^\\/][^\\/]*$,,'`
+REVISION="0.1"
+
+. $PROGPATH/utils.sh
+
+WARN=90
+CRIT=95
+USE_REAL=false
+
+function usage
+{
+        echo -e "Usage: $0 [-r] -w <percent_used> -c <percent_used>\n\t-r use \"real\" memory (without buffer and caches)"
+        exit $STATE_UNKNOWN
+}
+
+
+while getopts "c:w:r" param
+do
+        case $param in
+                w) WARN=$OPTARG;;
+                c) CRIT=$OPTARG;;
+                r) USE_REAL=true;;
+                *) usage;;
+        esac
+done
+
+MEM=`free|grep "Mem:"|awk '{print $2}'`
+SWAP=`free|grep "Swap:"|awk '{print $2}'`
+REAL_MEM_USED=`free|grep "/+ buffers/cache"|awk '{print $3}'`
+ALL_MEM_USED=`free|grep "Mem:"|awk '{print $3}'`
+SWAP_MEM_USED=`free|grep "Swap:"|awk '{print $3}'`
+
+REAL_PERCENT=`expr ${REAL_MEM_USED} \* 100 \/ ${MEM}`
+ALL_PERCENT=`expr ${ALL_MEM_USED} \* 100 \/ ${MEM}`
+SWAP_PERCENT=`expr ${SWAP_MEM_USED} \* 100 \/ ${MEM}`
+
+if [ "$USE_REAL" = "true" ];then
+        PERCENT=$REAL_PERCENT
+        REAL_SELECTED="*"
+else
+        PERCENT=$ALL_PERCENT
+        ALL_SELECTED="*"
+fi
+
+if [ $PERCENT -gt $CRIT ];then
+        echo "CRIT - ${REAL_SELECTED}Real: ${REAL_PERCENT}%, ${ALL_SELECTED}All: ${ALL_PERCENT}%, Swap: ${SWAP_PERCENT}%"
+        exit $STATE_CRITICAL
+elif [ $PERCENT -gt $WARN ];then
+        echo "WARN - ${REAL_SELECTED}Real: ${REAL_PERCENT}%, ${ALL_SELECTED}All: ${ALL_PERCENT}%, Swap: ${SWAP_PERCENT}%"
+        exit $STATE_WARNING
+fi
+
+if [ $SWAP_PERCENT -gt $CRIT ];then
+        echo "CRIT - Real: ${REAL_PERCENT}%, All: ${ALL_PERCENT}%, *Swap: ${SWAP_PERCENT}%"
+        exit $STATE_CRITICAL
+elif [ $SWAP_PERCENT -gt $WARN ];then
+        echo "WARN - Real: ${REAL_PERCENT}%, All: ${ALL_PERCENT}%, *Swap: ${SWAP_PERCENT}%"
+        exit $STATE_WARNING
+fi
+
+echo "OK - Real: ${REAL_PERCENT}%, All: ${ALL_PERCENT}%, Swap: ${SWAP_PERCENT}%"
+exit $STATE_OK
+
+

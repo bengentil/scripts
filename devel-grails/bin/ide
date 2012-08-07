@@ -1,0 +1,16 @@
+#!/bin/sh
+
+if [ $# -ge 1 ];then
+	current_path=$1
+else
+	current_path=.
+fi
+
+cd $current_path
+
+tmux new-session -d -s ide 'vim .'
+tmux split-window -v
+tmux resize-pane -D 20
+tmux select-pane -U
+tmux -2 attach-session -t ide
+

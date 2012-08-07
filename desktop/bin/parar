@@ -1,0 +1,91 @@
+#!/bin/bash
+
+## TODO
+## implement all files processing: parar -a
+##      for i in `ls *.par2|grep -v vol`;do parar.sh ${i%.*};done 
+## implement directory for unrar (post-processing)
+##       
+
+if [[ $# = 0 && -z $NZBPP_PARFILENAME ]]
+then
+   echo "Usage: $0 <name>"
+   echo "       name should be without ext"
+   exit
+fi
+
+par2_exist="no"
+rar_ext="unknown"
+rm_ext="srr sfv nzb nfo"
+pattern="$1"
+
+if [ "$1" = "-p" ]
+then
+   pattern=${2%.*}
+   if [ `echo $pattern|grep -c vol` != 0 ]
+   then
+      pattern=${pattern%.*}
+   fi
+fi
+
+if [ ! -z "$NZBPP_PARFILENAME" ]
+then
+   pattern=${NZBPP_PARFILENAME%.*}
+   if [ `echo $pattern|grep -c vol` != 0 ]
+   then
+      pattern=${pattern%.*}
+   fi
+fi
+
+if [ -f "$pattern.par2" ]
+then
+   par2_exist="yes"
+fi
+
+if [ -f "$pattern.rar" ]
+then
+   rar_ext="rar"
+   rar_rm="r*"
+elif [ -f "$pattern.part01.rar" ]
+then
+   rar_ext="part01.rar"
+   rar_rm="part*.rar"
+fi
+
+echo "$pattern: Par2? [$par2_exist], rar_ext: $rar_ext"
+
+if [ $par2_exist != "no" ] 
+then
+   echo -n "$pattern: [par2] "
+   par2 r "$pattern.par2" >> parar.log
+   if [ $? = 0 ]
+   then
+      rm "$pattern.par2" "$pattern".vol*
+      echo OK
+   else
+      echo KO
+   fi
+fi
+
+if [ $rar_ext != "unknown" ]
+then
+   echo -n "$pattern: [unrar] "
+   unrar x "$pattern.$rar_ext" >> parar.log
+   if [ $? = 0 ]
+   then
+      rm "$pattern".$rar_rm
+      echo OK
+      rm parar.log
+   else
+      echo KO
+   fi
+fi
+
+for i in `echo $rm_ext`
+do
+   if [ -f "$pattern.$i" ]
+   then
+      echo "$pattern: [rm] $pattern.$i"
+      rm "$pattern.$i"
+   fi
+done
+
